@@ -1,0 +1,28 @@
+version: '3.8'
+services:
+  target_database:
+    image: mariadb:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: testdb
+    networks:
+      - zero_trust_net
+
+  security_proxy:
+    build: ./proxy
+    ports:
+      - "33060:33060"
+    depends_on:
+      - target_database
+    networks:
+      - zero_trust_net
+
+  frontend_ui:
+    build: ./frontend
+    ports:
+      - "8081:80"
+    networks:
+      - zero_trust_net
+networks:
+  zero_trust_net:
+    driver: bridge
