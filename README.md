@@ -47,3 +47,14 @@ This project uses Docker to easily spin up both the isolated database and the cu
 2. Build the C proxy and start the containers:
    ```bash
    docker-compose up --build
+
+## Branching Strategy
+
+This project follows the **GitHub Flow** branching model to ensure clean, isolated feature development:
+
+1. **`main` Branch:** Represents stable, production-ready code. Direct commits to `main` are restricted.
+2. **`feature/*` Branches:** All new capabilities (such as proxy socket handling, rule engines, or dashboard UIs) are developed in dedicated feature branches branched off `main`.
+3. **Pull Requests & Code Review:** Once a feature is complete, a Pull Request (PR) is opened against `main` for review and testing before merging.
+
+### Example Active Branch
+* `feature/sql-anomaly-detector` – Implements payload inspection and connection termination logic.
