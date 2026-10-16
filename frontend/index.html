@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zero-Trust Shield | Live Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1420;
+    --panel: #131c2b;
+    --panel-2: #182335;
+    --line: #243247;
+    --text: #e6edf6;
+    --muted: #8a9bb4;
+    --blue: #4f8cff;
+    --red: #ff5d6c;
+    --green: #35d39a;
+    --amber: #f2b84b;
+    --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { color-scheme: dark; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+    padding: 28px clamp(16px, 4vw, 48px) 48px;
+  }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+  /* Header */
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand svg { width: 34px; height: 34px; flex: none; }
+  .brand h1 { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+  .brand p { color: var(--muted); font-size: 0.85rem; }
+
+  .conn { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); font-size: 0.85rem; color: var(--muted); }
+  .conn i { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
+  .conn[data-state="live"] { color: var(--text); }
+  .conn[data-state="live"] i { background: var(--green); box-shadow: 0 0 0 4px rgba(53,211,154,.18); }
+  .conn[data-state="offline"] i { background: var(--red); }
+
+  /* Session summary: one continuous band, not separate cards */
+  .summary { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: 10px; background: var(--panel); margin-bottom: 20px; overflow: hidden; }
+  .summary div { padding: 16px 22px; border-right: 1px solid var(--line); }
+  .summary div:last-child { border-right: 0; }
+  .summary dt { color: var(--muted); font-size: 0.82rem; }
+  .summary dd { font-family: var(--mono); font-size: 1.9rem; font-weight: 500; line-height: 1.2; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .summary .n-blocked { color: var(--red); }
+  .summary .n-allowed { color: var(--green); }
+
+  /* Layout */
+  .layout { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(0, 2fr); gap: 20px; align-items: start; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 20px; border-bottom: 1px solid var(--line); }
+  .panel-head h2 { font-size: 1rem; font-weight: 600; }
+  .panel-head .sub { color: var(--muted); font-size: 0.82rem; font-weight: 400; margin-left: 8px; }
+
+  /* Rules */
+  .rules { list-style: none; max-height: 420px; overflow-y: auto; }
+  .rules li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 20px; border-bottom: 1px solid var(--line); }
+  .rules li:last-child { border-bottom: 0; }
+  .rules code { font-family: var(--mono); font-size: 0.88rem; word-break: break-all; }
+  .empty { padding: 28px 20px; color: var(--muted); font-size: 0.9rem; }
+  .empty strong { display: block; color: var(--text); font-weight: 500; margin-bottom: 2px; }
+
+  .add-rule { display: flex; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--line); background: var(--panel-2); }
+  .add-rule input { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; font-family: var(--mono); font-size: 0.88rem; }
+  .add-rule input::placeholder { color: #566680; }
+  .add-rule input:focus-visible { outline-offset: 0; border-color: var(--blue); }
+
+  .btn { background: var(--blue); color: #fff; border: 0; border-radius: 6px; padding: 8px 16px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: filter .15s; }
+  .btn:hover { filter: brightness(1.12); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 5px 12px; font-size: 0.82rem; }
+  .btn-ghost:hover { color: var(--text); border-color: #3a4d69; filter: none; }
+  .btn-remove { background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 3px 10px; font-size: 0.8rem; cursor: pointer; flex: none; }
+  .btn-remove:hover { color: var(--red); border-color: var(--red); }
+
+  /* Log toolbar */
+  .tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { background: transparent; border: 0; border-right: 1px solid var(--line); color: var(--muted); padding: 5px 12px; font-size: 0.82rem; cursor: pointer; }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--text); }
+  .seg button:focus-visible { outline-offset: -2px; }
+
+  /* Log table */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 560px; }
+  th { text-align: left; font-weight: 500; font-size: 0.82rem; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+  td { padding: 9px 14px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 0.85rem; vertical-align: top; }
+  tbody tr { cursor: pointer; border-left: 3px solid transparent; }
+  tbody tr[data-status="BLOCKED"] { border-left-color: var(--red); }
+  tbody tr[data-status="ALLOWED"] { border-left-color: var(--green); }
+  tbody tr:hover { background: rgba(255,255,255,.025); }
+  td.time { color: var(--muted); white-space: nowrap; }
+  td.ip { white-space: nowrap; }
+  td.query { color: #aebcf5; max-width: 0; width: 100%; }
+  td.query span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  tr.open td.query span { white-space: pre-wrap; word-break: break-word; overflow: visible; }
+
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-family: var(--sans); font-size: 0.78rem; font-weight: 600; }
+  .badge.BLOCKED { background: rgba(255,93,108,.14); color: var(--red); }
+  .badge.ALLOWED { background: rgba(53,211,154,.13); color: var(--green); }
+  .badge.OTHER { background: rgba(138,155,180,.15); color: var(--muted); }
+
+  .logs[data-filter="BLOCKED"] tr[data-status="ALLOWED"],
+  .logs[data-filter="ALLOWED"] tr[data-status="BLOCKED"] { display: none; }
+
+  @keyframes arrive { from { background: rgba(79,140,255,.22); } to { background: transparent; } }
+  tr.fresh { animation: arrive 1.2s ease-out; }
+
+  .foot { padding: 10px 20px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--line); }
+
+  /* Toast */
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #2a1519; color: #ffc9ce; border: 1px solid var(--red); border-radius: 8px; padding: 10px 16px; font-size: 0.88rem; max-width: calc(100vw - 32px); }
+  .toast[hidden] { display: none; }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .summary dd { font-size: 1.5rem; }
+    .summary div { padding: 12px 14px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    tr.fresh { animation: none; }
+    .btn { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <path d="M16 3 5 7v8c0 7 4.6 11.6 11 14 6.4-2.4 11-7 11-14V7L16 3Z" stroke="#4f8cff" stroke-width="2" stroke-linejoin="round" fill="rgba(79,140,255,.12)"/>
+      <path d="m11.5 16 3.2 3.2 6-6.4" stroke="#35d39a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div>
+      <h1>Zero-Trust Shield</h1>
+      <p>Live query inspection and threat rules</p>
+    </div>
+  </div>
+  <div class="conn" id="conn" data-state="connecting" role="status"><i></i><span id="connText">Connecting</span></div>
+</header>
+
+<dl class="summary" aria-label="Session summary">
+  <div><dt>Blocked this session</dt><dd class="n-blocked" id="statBlocked">0</dd></div>
+  <div><dt>Allowed this session</dt><dd class="n-allowed" id="statAllowed">0</dd></div>
+  <div><dt>Active rules</dt><dd id="statRules">0</dd></div>
+</dl>
+
+<main class="layout">
+  <!-- Rules (REST API) -->
+  <section class="panel" aria-labelledby="rulesTitle">
+    <div class="panel-head"><h2 id="rulesTitle">Threat rules</h2></div>
+    <ul class="rules" id="rulesList"></ul>
+    <form class="add-rule" id="ruleForm">
+      <label for="newRule" style="position:absolute;left:-9999px">New rule keyword</label>
+      <input type="text" id="newRule" placeholder="e.g. DELETE FROM" autocomplete="off" spellcheck="false">
+      <button class="btn" type="submit" id="addBtn">Add rule</button>
+    </form>
+  </section>
+
+  <!-- Live logs (WebSocket) -->
+  <section class="panel" aria-labelledby="logsTitle">
+    <div class="panel-head">
+      <h2 id="logsTitle">Live query log<span class="sub">WebSocket</span></h2>
+      <div class="tools">
+        <div class="seg" role="group" aria-label="Filter by status" id="filters">
+          <button type="button" data-filter="ALL" aria-pressed="true">All</button>
+          <button type="button" data-filter="BLOCKED" aria-pressed="false">Blocked</button>
+          <button type="button" data-filter="ALLOWED" aria-pressed="false">Allowed</button>
+        </div>
+        <button type="button" class="btn btn-ghost" id="pauseBtn">Pause</button>
+        <button type="button" class="btn btn-ghost" id="clearBtn">Clear</button>
+      </div>
+    </div>
+    <div class="logs" id="logs" data-filter="ALL">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Time</th><th>Status</th><th>Source IP</th><th>Intercepted query</th></tr></thead>
+          <tbody id="logTable"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="logEmpty">
+        <strong>Waiting for queries</strong>
+        Queries appear here as the proxy inspects them. Select a row to see the full query.
+      </div>
+    </div>
+    <div class="foot" id="logFoot">Showing the latest 50 queries</div>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="alert" hidden></div>
+
+<script>
+  const API_BASE = "http://localhost:8000/api";
+  const WS_URL = "ws://localhost:8000/ws/logs";
+  const MAX_LOGS = 50;
+
+  const $ = (id) => document.getElementById(id);
+  const stats = { blocked: 0, allowed: 0 };
+
+  /* ---------- Toast ---------- */
+  let toastTimer;
+  function showError(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.hidden = true; }, 5000);
+  }
+
+  /* ---------- Rules (REST) ---------- */
+  function renderRules(rules) {
+    const list = $('rulesList');
+    list.replaceChildren();
+    $('statRules').textContent = rules.length;
+
+    if (!rules.length) {
+      const li = document.createElement('li');
+      li.className = 'empty';
+      li.innerHTML = '<div><strong>No rules yet</strong>Add a keyword the proxy should block, for example DELETE FROM.</div>';
+      list.appendChild(li);
+      return;
+    }
+    for (const rule of rules) {
+      const li = document.createElement('li');
+      const code = document.createElement('code');
+      code.textContent = rule;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn-remove';
+      btn.textContent = 'Remove';
+      btn.setAttribute('aria-label', 'Remove rule ' + rule);
+      btn.addEventListener('click', () => deleteRule(rule));
+      li.append(code, btn);
+      list.appendChild(li);
+    }
+  }
+
+  async function fetchRules() {
+    try {
+      const res = await fetch(`${API_BASE}/rules`);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      renderRules(Array.isArray(data.rules) ? data.rules : []);
+    } catch (err) {
+      showError('Could not load rules. Check that the backend is running on localhost:8000.');
+    }
+  }
+
+  async function addRule(keyword) {
+    const btn = $('addBtn');
+    btn.disabled = true;
+    try {
+      const res = await fetch(`${API_BASE}/rules`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword })
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      $('newRule').value = '';
+    } catch (err) {
+      showError('Could not add the rule. The backend did not accept the request.');
+    } finally {
+      btn.disabled = false;
+      fetchRules();
+    }
+  }
+
+  async function deleteRule(keyword) {
+    try {
+      const res = await fetch(`${API_BASE}/rules/${encodeURIComponent(keyword)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+    } catch (err) {
+      showError('Could not remove the rule. The backend did not accept the request.');
+    } finally {
+      fetchRules();
+    }
+  }
+
+  $('ruleForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const keyword = $('newRule').value.trim();
+    if (keyword) addRule(keyword);
+  });
+
+  /* ---------- Live logs (WebSocket) ---------- */
+  const tbody = $('logTable');
+  let paused = false;
+  let buffer = [];
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function clock(d) { return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
+
+  function updateStats() {
+    $('statBlocked').textContent = stats.blocked;
+    $('statAllowed').textContent = stats.allowed;
+  }
+
+  function updateEmpty() {
+    $('logEmpty').hidden = tbody.children.length > 0;
+  }
+
+  function addLogRow(entry) {
+    const status dChild(span);
+
+    tr.append(tdTime, tdStatus, tdIp, tdQuery);
+    tr.addEventListener('click', () => tr.classList.toggle('open'));
+    tr.addEventListener('animationend', () => tr.classList.remove('fresh'));
+
+    tbody.insertBefore(tr, tbody.firstChild);
+    while (tbody.children.length > MAX_LOGS) tbody.removeChild(tbody.lastChild);
+  }
+
+  function handleEntry(entry) {
+    if (entry.status === 'BLOCKED') stats.blocked++;
+    else if (entry.status === 'ALLOWED') stats.allowed++;
+    updateStats();
+    if (paused) { buffer.push(entry); updatePauseLabel(); return; }
+    addLogRow(entry);
+    updateEmpty();
+  }
+
+  function updatePauseLabel() {
+    $('pauseBtn').textContent = paused
+      ? (buffer.length ? `Resume (${buffer.length} new)` : 'Resume')
+      : 'Pause';
+  }
+
+  $('pauseBtn').addEventListener('click', () => {
+    paused = !paused;
+    if (!paused) {
+      for (const entry of buffer.slice(-M= String(entry.status || '').toUpperCase();
+    const span = document.createElement('span');
+    span.textContent = query;   // textContent: intercepted queries are untrusted input
+    tdQuery.appenbadgeClass = status === 'BLOCKED' || status === 'ALLOWED' ? status : 'OTHER';
+    const query = String(entry.query ?? 'AX_LOGS)) addLog');
+
+    const tr = document.createElement('tr');
+    tr.dataset.status = badgeClass;Row(entry);
+      buffer = [];
+      updateEmpty();
+    }
+    updatePauseLabel();
+  });
+
+  $('clearBtn').addEventListener('click', () => {
+    tbody.replaceChildren();
+    buffer = [];
+    updatePauseLabel();
+    updateEmpty();
+  });
+
+  $('filters').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-filter]');
+    if (!btn) return;
+    $('logs').dataset.filter = btn.dataset.filter;
+    for (const b of $('filters').querySelectorAll('button')) {
+      b.setAttribute('aria-pressed', String(b === btn));
+    }
+  });
+
+  /* ---------- Connection with automatic reconnect ---------- */
+  function setConn(state, text) {
+    $('conn').dataset.state = state;
+    $('connText').textContent = text;
+  }
+
+  let retryDelay = 1000;
+
+  function connect() {
+    setConn('connecting', 'Connecting');
+    let ws;
+    try { ws = new WebSocket(WS_URL); } catch (err) { scheduleRetry(); return; }
+
+    ws.onopen = () => {
+      retryDelay = 1000;
+      setConn('live', 'Live');
+      fetchRules();   // resync rules whenever the backend comes back
+  let retryTimer;
+  function scheduleRetry() {
+    clearTimeout(retryTimer);
+    setConn('offline', `Disconnected, retrying in ${Math.round(retryDelay / 1000)}s`);
+    retryTimer = setTimeout(connect, retryDelay);
+    retryDelay = Math.min(retryDelay * 2, 10000);
+  }
+
+  /* ---------- Init ---------- */
+  fetchRules();
+  connect();
+</script>
+</body>
+</html>  };
+    ws.onmessage = (event) => {
+      let data;
+      try { data = JSON.paclose();
+  }
+
+  rse(event.data); } catch (err) { return; }
+      data.receivedAt = new Date();
+      handleEntry(data);
+    };
+    ws.onclose = scheduleRetry;
+    ws.onerror = () => ws.
+    tr.className = 'fresh';ery';
+    const 
+    tr.title = 'Select to expand';
+
+    const t.className = 'qudTime = document.createElement('td');
+    tdTime.className = 'time';
+    tdTime.textContent = clock(entry.receivedd');
+    tdQueryAt);
+
+    const tdStatus = document.createElement('td');
+    const badge = document.crcreateElement('teateElement('span');
+    badge.className = 'badge ' + badg;
+
+    const tdQuery = document.eClass;
+    badge.textContent = status || 'UNKNOWN';
+    tdStatus.appme = 'ip';
+    tdIp.textContent = entry.ip ?? ''endChild(badge);
+
+    const tdIp = document.createElement('td');
+    tdIp.classNa
