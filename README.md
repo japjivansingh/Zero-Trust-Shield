@@ -1,6 +1,6 @@
 # Zero-Trust Database Access & Query Anomaly Gateway
 
-## 1. Vision Document
+## 1. Vision Document....
 
 ### Project Name & Overview
 **Project Name:** Zero-Trust Database Access & Query Anomaly Gateway  
